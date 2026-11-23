@@ -1,3 +1,4 @@
+import {checkKucoinConnection, authorized} from './kucoin.js';
 import http from 'node:http';
 const PORT=Number(process.env.PORT||10000);
 const allowedOrigin=process.env.ALLOWED_ORIGIN||'https://beautifullminds.github.io';
@@ -24,6 +25,7 @@ const server=http.createServer(async(req,res)=>{
  const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':allowedOrigin,'Vary':'Origin','X-Content-Type-Options':'nosniff'};
  if(req.method==='OPTIONS'){res.writeHead(204,{...headers,'Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'Content-Type'});return res.end()}
  if(req.method!=='GET'){res.writeHead(405,headers);return res.end(JSON.stringify({error:'Method not allowed'}))}
+ if(req.url==='/api/admin/kucoin/status'){if(!authorized(req)){res.writeHead(401,headers);return res.end(JSON.stringify({error:'Unauthorized'}))}const status=await checkKucoinConnection();res.writeHead(status.connected?200:503,headers);return res.end(JSON.stringify(status))}
  if(req.url==='/health'){res.writeHead(200,headers);return res.end(JSON.stringify({ok:true,mode:'market-data-only',tradingEnabled:false}))}
  if(req.url==='/api/markets'){try{const result=await scan();res.writeHead(200,headers);return res.end(JSON.stringify(result))}catch(e){res.writeHead(502,headers);return res.end(JSON.stringify({error:'Market feed unavailable'}))}}
  res.writeHead(404,headers);res.end(JSON.stringify({error:'Not found'}));
