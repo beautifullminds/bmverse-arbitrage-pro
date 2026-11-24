@@ -28,7 +28,7 @@ async function scanFresh(){
    const ba=Number(x.askPrice),bb=Number(x.bidPrice),ka=Number(y.sell),kb=Number(y.buy);
    if(![ba,bb,ka,kb].every(n=>Number.isFinite(n)&&n>0))continue;
    for(const direction of [{buy:'Binance',sell:'KuCoin',ask:ba,bid:kb},{buy:'KuCoin',sell:'Binance',ask:ka,bid:bb}]){
-     opportunities.push({pair:label,buyExchange:direction.buy,sellExchange:direction.sell,buyPrice:direction.ask,sellPrice:direction.bid,grossSpreadPct:Number(((direction.bid/direction.ask)-1)*100).toFixed(6)});
+     opportunities.push({pair:label,buyExchange:direction.buy,sellExchange:direction.sell,buyPrice:direction.ask,sellPrice:direction.bid,grossSpreadPct:Number((((direction.bid/direction.ask)-1)*100).toFixed(6))});
    }
  }
  const result={updatedAt:new Date().toISOString(),sources:{binance:binance.status==='fulfilled'?'ok':'unavailable',kucoin:k.size>0?'ok':'unavailable'},opportunities,mode:'public-market-monitoring',tradingEnabled:false,disclaimer:'Indicative top-of-book quotes only. Depth, fill risk, fees, slippage, rebalancing and transfer costs are not guaranteed. Not executable quotes or realized P&L.'};
