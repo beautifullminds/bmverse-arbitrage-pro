@@ -1,3 +1,4 @@
+import {scanDex} from './dex.js';
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -49,6 +50,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':allowedOrigin,'Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'Authorization, Content-Type','Vary':'Origin'});return res.end()}
  if(req.method!=='GET')return respond(res,405,{error:'Method not allowed'});
  if(path==='/health')return respond(res,200,{ok:true,mode:'public-market-monitoring',tradingEnabled:false});
+ if(path==='/api/dex'){try{return respond(res,200,await scanDex())}catch{return respond(res,503,{error:'DEX feed unavailable',tradingEnabled:false})}}
  if(path==='/api/markets'){
    try{return respond(res,200,await scan())}
    catch{return respond(res,503,{error:'Live cross-exchange quotes are unavailable. Retry shortly.',updatedAt:new Date().toISOString(),tradingEnabled:false})}
