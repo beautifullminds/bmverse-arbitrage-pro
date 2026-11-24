@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bmverse-arbitrage-market-data
+    name: bmverse-arbitrage-pro
     runtime: node
     plan: starter
     buildCommand: npm install --omit=dev
