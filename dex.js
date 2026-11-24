@@ -32,10 +32,11 @@ let cached,at=0,pending;
 async function fresh(){
  const results=await Promise.allSettled(assets.map(async([chain,symbol,address])=>{
   const r=await fetch('https://api.dexscreener.com/token-pairs/v1/'+chain+'/'+address,{signal:AbortSignal.timeout(10000)});
-  if(!r.ok)throw Error('HTTP '+r.status);
+  if(!r.ok)throw Error('DexScreener HTTP '+r.status);
   const data=await r.json();if(!Array.isArray(data))throw Error('Invalid response');
   return {chain,symbol,pools:data.filter(p=>p.chainId===chain&&norm(chain,p.baseToken?.address)===norm(chain,address)&&stable[chain].includes(norm(chain,p.quoteToken?.address))&&Number(p.liquidity?.usd)>=100000&&Number(p.volume?.h24)>=10000&&Number(p.priceUsd)>0&&Number.isFinite(Number(p.priceUsd))).map(p=>({chain,symbol,baseAddress:norm(chain,address),dex:String(p.dexId),pool:String(p.pairAddress),quoteAddress:norm(chain,p.quoteToken.address),quoteSymbol:String(p.quoteToken.symbol),priceUsd:Number(p.priceUsd),liquidityUsd:Number(p.liquidity.usd),volume24h:Number(p.volume.h24)})).slice(0,40)};
  }));
+ for(let i=0;i<results.length;i++){if(results[i].status==='rejected')console.warn('DEX upstream',assets[i][0],assets[i][1],results[i].reason?.message,results[i].reason?.cause?.code||'');}
  const pools=results.flatMap(r=>r.status==='fulfilled'?r.value.pools:[]);
  const candidates=[];
  for(const a of pools)for(const b of pools){
@@ -43,6 +44,6 @@ async function fresh(){
  candidates.push({chain:a.chain,symbol:a.symbol,quote:a.quoteSymbol,buyDex:a.dex,sellDex:b.dex,buyPool:a.pool,sellPool:b.pool,buyPriceUsd:a.priceUsd,sellPriceUsd:b.priceUsd,grossSpreadPct:(b.priceUsd/a.priceUsd-1)*100,minLiquidityUsd:Math.min(a.liquidityUsd,b.liquidityUsd),requiresExecutableQuote:true});
  }
  candidates.sort((a,b)=>b.grossSpreadPct-a.grossSpreadPct);
- return {updatedAt:new Date().toISOString(),sources:assets.map((a,i)=>({chain:a[0]+'/'+a[1],status:results[i].status==='fulfilled'?'ok':'unavailable'})),poolCount:pools.length,dexes:[...new Set(pools.map(p=>p.dex))],pools,candidates:candidates.slice(0,100),tradingEnabled:false,disclaimer:'Indexed indicative USD prices, not executable quotes. Same chain and identical quote token only. Gas, pool fees, price impact, MEV and freshness require independent validation.'};
+ return {updatedAt:new Date().toISOString(),sources:assets.map((a,i)=>({chain:a[0]+'/'+a[1],status:results[i].status==='fulfilled'?'ok':'unavailable',error:results[i].status==='rejected'?String(results[i].reason?.message||'Unknown upstream error').slice(0,150):undefined})),poolCount:pools.length,dexes:[...new Set(pools.map(p=>p.dex))],pools,candidates:candidates.slice(0,100),tradingEnabled:false,disclaimer:'Indexed indicative USD prices, not executable quotes. Same chain and identical quote token only. Gas, pool fees, price impact, MEV and freshness require independent validation.'};
 }
 export async function scanDex(){if(cached&&Date.now()-at<30000)return cached;if(!pending)pending=fresh().then(x=>{cached=x;at=Date.now();return x}).finally(()=>pending=null);return pending;}
