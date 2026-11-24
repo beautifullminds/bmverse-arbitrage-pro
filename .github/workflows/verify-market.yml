@@ -1,0 +1,56 @@
+name: Verify BMverse market backend
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check backend syntax
+        run: |
+          node --check server.js
+          node --check kucoin.js
+      - name: Validate dashboard JavaScript syntax
+        run: |
+          node --input-type=module <<'EOF'
+          import {readFileSync} from 'node:fs';
+          import {Script} from 'node:vm';
+          const html=readFileSync('index.html','utf8');
+          const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+          if (!scripts.length) throw Error('No dashboard JavaScript found');
+          for (const script of scripts) new Script(script[1]);
+          console.log('Dashboard JavaScript parsed successfully');
+          EOF
+  render-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployed Render health endpoint
+        run: |
+          curl --fail-with-body --location --retry 2 --retry-delay 5 --max-time 60 --silent --show-error \
+            https://bmverse-arbitrage-pro.onrender.com/health -o health.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('health.json'))
+          assert data.get('ok') is True
+          assert data.get('tradingEnabled') is False
+          print('Render health verified: read-only scanner')
+          PY
+      - name: Check cross-exchange public quote availability
+        continue-on-error: true
+        run: |
+          curl --fail-with-body --location --max-time 60 --silent --show-error \
+            https://bmverse-arbitrage-pro.onrender.com/api/markets -o markets.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('markets.json'))
+          assert data.get('tradingEnabled') is False
+          print('Market API quote rows:',len(data.get('opportunities',[])))
+          print('Data sources:',data.get('sources'))
+          PY
