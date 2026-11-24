@@ -1,5 +1,13 @@
 // Discovery only: indexed USD prices are not executable swap quotes.
 const assets=[
+ ['ethereum','WBTC','0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'],
+ ['bsc','BTCB','0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c'],
+ ['arbitrum','WBTC','0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'],
+ ['base','cbBTC','0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf'],
+ ['polygon','WBTC','0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6'],
+ ['avalanche','BTC.b','0x152b9d0FdC40C096757F570A51E494bd4b943E50'],
+ ['optimism','WBTC','0x68f180fcCe6836688e9084f035309E29Bf0A2095'],
+ ['polygon','WETH','0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'],
  ['ethereum','WETH','0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'],
  ['bsc','WBNB','0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'],
  ['solana','WSOL','So11111111111111111111111111111111111111112'],
@@ -26,15 +34,15 @@ async function fresh(){
   const r=await fetch('https://api.dexscreener.com/token-pairs/v1/'+chain+'/'+address,{signal:AbortSignal.timeout(10000)});
   if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();if(!Array.isArray(data))throw Error('Invalid response');
-  return {chain,symbol,pools:data.filter(p=>p.chainId===chain&&norm(chain,p.baseToken?.address)===norm(chain,address)&&stable[chain].includes(norm(chain,p.quoteToken?.address))&&Number(p.liquidity?.usd)>=100000&&Number(p.volume?.h24)>=10000&&Number(p.priceUsd)>0&&Number.isFinite(Number(p.priceUsd))).map(p=>({chain,symbol,dex:String(p.dexId),pool:String(p.pairAddress),quoteAddress:norm(chain,p.quoteToken.address),quoteSymbol:String(p.quoteToken.symbol),priceUsd:Number(p.priceUsd),liquidityUsd:Number(p.liquidity.usd),volume24h:Number(p.volume.h24)})).slice(0,40)};
+  return {chain,symbol,pools:data.filter(p=>p.chainId===chain&&norm(chain,p.baseToken?.address)===norm(chain,address)&&stable[chain].includes(norm(chain,p.quoteToken?.address))&&Number(p.liquidity?.usd)>=100000&&Number(p.volume?.h24)>=10000&&Number(p.priceUsd)>0&&Number.isFinite(Number(p.priceUsd))).map(p=>({chain,symbol,baseAddress:norm(chain,address),dex:String(p.dexId),pool:String(p.pairAddress),quoteAddress:norm(chain,p.quoteToken.address),quoteSymbol:String(p.quoteToken.symbol),priceUsd:Number(p.priceUsd),liquidityUsd:Number(p.liquidity.usd),volume24h:Number(p.volume.h24)})).slice(0,40)};
  }));
  const pools=results.flatMap(r=>r.status==='fulfilled'?r.value.pools:[]);
  const candidates=[];
  for(const a of pools)for(const b of pools){
- if(a.chain!==b.chain||a.symbol!==b.symbol||a.quoteAddress!==b.quoteAddress||a.dex===b.dex||a.pool===b.pool||b.priceUsd<=a.priceUsd)continue;
+ if(a.chain!==b.chain||a.baseAddress!==b.baseAddress||a.quoteAddress!==b.quoteAddress||a.dex===b.dex||a.pool===b.pool||b.priceUsd<=a.priceUsd)continue;
  candidates.push({chain:a.chain,symbol:a.symbol,quote:a.quoteSymbol,buyDex:a.dex,sellDex:b.dex,buyPool:a.pool,sellPool:b.pool,buyPriceUsd:a.priceUsd,sellPriceUsd:b.priceUsd,grossSpreadPct:(b.priceUsd/a.priceUsd-1)*100,minLiquidityUsd:Math.min(a.liquidityUsd,b.liquidityUsd),requiresExecutableQuote:true});
  }
  candidates.sort((a,b)=>b.grossSpreadPct-a.grossSpreadPct);
- return {updatedAt:new Date().toISOString(),sources:assets.map((a,i)=>({chain:a[0],status:results[i].status==='fulfilled'?'ok':'unavailable'})),poolCount:pools.length,dexes:[...new Set(pools.map(p=>p.dex))],pools,candidates:candidates.slice(0,100),tradingEnabled:false,disclaimer:'Indexed indicative USD prices, not executable quotes. Same chain and identical quote token only. Gas, pool fees, price impact, MEV and freshness require independent validation.'};
+ return {updatedAt:new Date().toISOString(),sources:assets.map((a,i)=>({chain:a[0]+'/'+a[1],status:results[i].status==='fulfilled'?'ok':'unavailable'})),poolCount:pools.length,dexes:[...new Set(pools.map(p=>p.dex))],pools,candidates:candidates.slice(0,100),tradingEnabled:false,disclaimer:'Indexed indicative USD prices, not executable quotes. Same chain and identical quote token only. Gas, pool fees, price impact, MEV and freshness require independent validation.'};
 }
 export async function scanDex(){if(cached&&Date.now()-at<30000)return cached;if(!pending)pending=fresh().then(x=>{cached=x;at=Date.now();return x}).finally(()=>pending=null);return pending;}
